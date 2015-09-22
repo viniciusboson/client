@@ -244,7 +244,7 @@ public class PatientChartActivityTest extends FunctionalTestCase {
             String respiratoryRate = Integer.toString(i + 80);
             String bpSystolic = Integer.toString(i + 80);
             String bpDiastolic = Integer.toString(5 + 100);
-            answerTextQuestion(RESPIRATORY_RATE_LABEL, pulse);
+            answerTextQuestion(RESPIRATORY_RATE_LABEL, respiratoryRate);
             answerTextQuestion(BLOOD_PRESSURE_SYSTOLIC_LABEL, bpSystolic);
             answerTextQuestion(BLOOD_PRESSURE_DIASTOLIC_LABEL, bpDiastolic);
             saveForm();
