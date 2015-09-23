@@ -42,7 +42,7 @@ public class PatientChartActivityTest extends FunctionalTestCase {
     private static final int ROW_HEIGHT = 84;
 
     private static final String FORM_LABEL = "[test] Form";
-    private static final String TEMPERATURE_LABEL = "[test] Temperature(°C)";
+    private static final String TEMPERATURE_LABEL = "[test] Temperature (°C)";
     private static final String RESPIRATORY_RATE_LABEL = "[test] Respiratory rate (bpm)";
     private static final String SPO2_OXYGEN_SAT_LABEL = "[test] SpO2 oxygen sat (%%)";
     private static final String BLOOD_PRESSURE_SYSTOLIC_LABEL = "[test] Blood pressure, systolic";
