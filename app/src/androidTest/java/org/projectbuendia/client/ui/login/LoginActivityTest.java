@@ -17,24 +17,13 @@ import org.projectbuendia.client.ui.matchers.UserMatchers;
 
 import java.util.Date;
 
-import static android.support.test.espresso.Espresso.onData;
-import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.action.ViewActions.typeText;
-import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withText;
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasToString;
-
 /** Tests for {@link LoginActivity}. */
 public class LoginActivityTest extends FunctionalTestCase {
 
     /** Adds a new user and logs in. */
     public void testAddUser() {
         screenshot("Test Start");
-        final long n = new Date().getTime() % 100000;
+        final long n = new Date().getTime()%100000;
         final String username = "test" + n;
         final String given = "Testgiven" + n;
         final String family = "Testfamily" + n;
@@ -51,12 +40,11 @@ public class LoginActivityTest extends FunctionalTestCase {
         waitForProgressFragment();
 
         // Click new user
-        expectVisible(dataThat(hasToString(equalTo("TT"))));
+        expectVisible(dataThat(new UserMatchers.HasFullName(given + " " + family)));
         screenshot("In User Selection");
         click(dataThat(new UserMatchers.HasFullName(given + " " + family)));
 
         // Should be logged in
-        expectVisible(viewWithText(given + " " + family));
         screenshot("After User Selected");
         click(viewWithText("TT"));
         expectVisible(viewWithText(given + " " + family));

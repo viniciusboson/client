@@ -1,0 +1,164 @@
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="chart.css">
+<script src="jquery-1.5.1.min.js"></script>
+<script src="freezeheader.js"></script>
+<script>
+$(document).ready(function() {
+  $('#grid').freezeHeader({top: true, left: true});
+});
+</script>
+
+<!-- Use double-quotes for HTML attributes; single-quotes for JS/Pebble strings. -->
+
+<table id="tiles" cellspacing="0" cellpadding="0">
+  {% for tileRow in tileRows %}
+    <tr>
+      {% for tile in tileRow %}
+        {% set id = tile.item.conceptIds | first %}
+        {% set class = tile.obsValues | obsformat(tile.item.cssClass) %}
+        {% set style = tile.obsValues | obsformat(tile.item.cssStyle) %}
+        <td class="tile concept-{{id}} {{class}}" style="{{style}}" width="{{100.0 / tileRow.size}}%">
+          <div class="heading">{{tile.item.label}}</div>
+          <div class="value">{{tile.obsValues | obsformat(tile.item.format) | linebreak | raw}}</div>
+          <div class="caption">{{tile.obsValues | obsformat(tile.item.captionFormat) | linebreak | raw}}</div>
+        </td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+</table>
+
+<div id="grid-scroller" style="width: 100%; overflow: scroll">
+  <table id="grid" cellspacing="0" cellpadding="0">
+    <thead>
+      <tr>
+        <th> </th>
+        {% for column in columns %}
+          <th class="{{column.start == nowColumnStart ? 'now' : ''}}" scope="col">
+            {{column.headingHtml | raw}}
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <th scope="rowgroup">
+          Observations
+        </th>
+      </tr>
+      {% for row in rows %}
+        {% set id = row.item.conceptIds | first %}
+        <tr class="obs concept-{{id}}">
+          <th scope="row">
+            {{row.item.label}}
+          </th>
+          {% for column in columns %}
+            {% set values = get_all(row=row, column=column) %}
+            {% if values is empty %}
+              {% set aggregate = null %}
+            {% elseif row.item.type == 'yes_no' %}
+              {% set aggregate = values | max %}
+            {% else %}
+              {% set aggregate = values | last %}
+            {% endif %}
+            {% set class = aggregate | obsformat(row.item.cssClass) %}
+            {% set style = aggregate | obsformat(row.item.cssStyle) %}
+            <td class="{{column.start == nowColumnStart ? 'now' : ''}} {{class}}"
+               style="{{style}}" onclick="popup({{row.item.label | js}},
+              {% if values is empty %}
+                []
+              {% else %}
+                [ {%- for value in values -%}
+                  [{{value | obsformat(row.item.captionFormat) | js}},
+                   {{value | obsformat('{1,obs_time,HH:mm}') | js}}],
+                {%- endfor -%} ]
+              {% endif %} )">
+              {% if values is not empty %}
+                {% if row.item.type == 'text_icon' %}
+                  <div onclick="alert(''
+                        {%- for value in values -%}
+                          + '---- '
+                          + {{value.encounterTime | dateformat('dd MMM \'at\' HH:mm') | js}}
+                          + ' ----\n'
+                          + {{value.value | js}}
+                          + '\n\n'
+                        {%- endfor -%}); return false">&#x1f4dd;</div>
+                {% else %}
+                  {{aggregate | obsformat(row.item.format)}}
+                {% endif %}
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+
+    <tbody>
+      <tr>
+        <th scope="rowgroup">
+          Treatment Plan
+        </th>
+      </tr>
+      {% for order in orders %}
+        <tr class="order">
+          <th scope="row">
+            {{order.instructions}}
+          </th>
+          {% set previousActive = false %}
+          {% set future = false %}
+          {% for column in columns %}
+            <td class="{{column.start == nowColumnStart ? 'now' : ''}}">
+              {% set active = intervals_overlap(order.interval, column.interval) %}
+              {% if order.stop == null and previousActive %}
+                <div class="future">&nbsp;</div>
+              {% elseif order.stop != null and previousActive and not active %}
+                <div class="stop">Stop</div>
+              {% elseif active %}
+                {% if future %}
+                  <div class="future active">&#x25cf;</div>
+                {% else %}
+                  {% set count = get_order_execution_count(order_uuid=order.uuid, column=column) %}
+                  <div class="past active"
+                      onclick="controller.onOrderCellPressed('{{order.uuid}}', {{column.start.getMillis}})"
+                      >{{count}}</div>
+                {% endif %}
+              {% endif %}
+              {% set previousActive = active %}
+              {% set future = future or column.start == nowColumnStart %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+
+      <tr>
+        <th class="command" onclick="controller.onNewOrderPressed()">
+          Add a New Treatment
+        </th>
+      </tr>
+    </tbody>
+
+    <script>
+      function popup(name, values) {
+        var dialog = document.getElementById('obs-dialog');
+        var html = '<h2>' + name + '</h2>';
+        var text = name + '\n\n';
+        if (values.length > 0) {
+          for (var i = 0; i < values.length; i++) {
+            var value = values[i][0], observed = values[i][1];
+            html += '<b>' + value + '</b> at ' + observed + '<br>';
+            text += value + ' at ' + observed + '\n';
+          }
+          html += '&nbsp;<br>Comments <input type="text" size="40">';
+        } else {
+          html += 'No observations.';
+          text += 'No observations.';
+        }
+        alert(text);
+        return;
+        dialog.innerHTML = html;
+        dialog.showModal();
+      }
+    </script>
+  </table>
+</div>
+

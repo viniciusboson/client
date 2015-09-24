@@ -26,7 +26,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.HttpHostConnectException;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.projectbuendia.client.model.Concepts;
+import org.projectbuendia.client.models.ConceptUuids;
 import org.projectbuendia.client.net.OpenMrsConnectionDetails;
 import org.projectbuendia.client.utils.Logger;
 
@@ -54,14 +54,14 @@ public class BuendiaApiHealthCheck extends HealthCheck {
 
     // These are the issues for which we use the faster checking period.
     private static final Set<HealthIssue> FAST_CHECK_ISSUES = ImmutableSet.of(
-            HealthIssue.SERVER_HOST_UNREACHABLE,
-            HealthIssue.SERVER_NOT_RESPONDING
+        HealthIssue.SERVER_HOST_UNREACHABLE,
+        HealthIssue.SERVER_NOT_RESPONDING
     );
 
     // Retrieving a concept should be quick and ensures that the module is both
     // running and has database access.
     private static final String HEALTH_CHECK_ENDPOINT =
-            "/concept/" + Concepts.GENERAL_CONDITION_UUID;
+        "/concepts/" + ConceptUuids.GENERAL_CONDITION_UUID;
 
     private final Object mLock = new Object();
 
@@ -72,15 +72,14 @@ public class BuendiaApiHealthCheck extends HealthCheck {
     private BuendiaModuleHealthCheckRunnable mRunnable;
 
     BuendiaApiHealthCheck(
-            Application application,
-            OpenMrsConnectionDetails connectionDetails) {
+        Application application,
+        OpenMrsConnectionDetails connectionDetails) {
         super(application);
 
         mConnectionDetails = connectionDetails;
     }
 
-    @Override
-    protected void startImpl() {
+    @Override protected void startImpl() {
         synchronized (mLock) {
             if (mHandlerThread == null) {
                 mHandlerThread = new HandlerThread("Buendia API Health Check");
@@ -98,8 +97,7 @@ public class BuendiaApiHealthCheck extends HealthCheck {
         }
     }
 
-    @Override
-    protected void stopImpl() {
+    @Override protected void stopImpl() {
         synchronized (mLock) {
             if (mRunnable != null) {
                 mRunnable.isRunning.set(false);
@@ -117,7 +115,7 @@ public class BuendiaApiHealthCheck extends HealthCheck {
 
     protected int getCheckPeriodMillis() {
         return Sets.intersection(FAST_CHECK_ISSUES, mActiveIssues).isEmpty()
-                ? CHECK_PERIOD_MS : FAST_CHECK_PERIOD_MS;
+            ? CHECK_PERIOD_MS : FAST_CHECK_PERIOD_MS;
     }
 
     private class BuendiaModuleHealthCheckRunnable implements Runnable {
@@ -130,11 +128,8 @@ public class BuendiaApiHealthCheck extends HealthCheck {
             mHandler = handler;
         }
 
-        @Override
-        public void run() {
-            if (!isRunning.get()) {
-                return;
-            }
+        @Override public void run() {
+            if (!isRunning.get()) return;
 
             try {
                 Uri uri = Uri.parse(mConnectionDetails.getBuendiaApiUrl() + HEALTH_CHECK_ENDPOINT);
@@ -148,14 +143,14 @@ public class BuendiaApiHealthCheck extends HealthCheck {
 
                 try {
                     httpGet.addHeader(BasicScheme.authenticate(
-                            new UsernamePasswordCredentials(
-                                    mConnectionDetails.getUser(),
-                                    mConnectionDetails.getPassword()),
-                            "UTF-8", false));
+                        new UsernamePasswordCredentials(
+                            mConnectionDetails.getUser(),
+                            mConnectionDetails.getPassword()),
+                        "UTF-8", false));
                     HttpResponse httpResponse = httpClient.execute(httpGet);
                     if (httpResponse.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_OK) {
                         LOG.w("The OpenMRS URL '%1$s' returned unexpected error code: %2$s",
-                              uri, httpResponse.getStatusLine().getStatusCode());
+                            uri, httpResponse.getStatusLine().getStatusCode());
                         switch (httpResponse.getStatusLine().getStatusCode()) {
                             case HttpURLConnection.HTTP_INTERNAL_ERROR:
                                 reportIssue(HealthIssue.SERVER_INTERNAL_ISSUE);

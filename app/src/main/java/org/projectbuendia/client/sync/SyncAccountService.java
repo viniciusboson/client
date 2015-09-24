@@ -24,10 +24,10 @@ import android.os.IBinder;
 
 import org.projectbuendia.client.AppSettings;
 import org.projectbuendia.client.BuildConfig;
-import org.projectbuendia.client.sync.providers.Contracts;
-import org.projectbuendia.client.utils.Logger;
 import org.projectbuendia.client.sync.SyncAdapter.SyncOption;
 import org.projectbuendia.client.sync.SyncAdapter.SyncPhase;
+import org.projectbuendia.client.providers.Contracts;
+import org.projectbuendia.client.utils.Logger;
 
 import javax.inject.Inject;
 
@@ -39,9 +39,9 @@ import javax.inject.Inject;
  */
 public class SyncAccountService extends Service {
 
-    private static final Logger LOG = Logger.create();
     public static final String ACCOUNT_NAME = "sync";
-    private static final long SYNC_PERIOD = 5 * 60;  // 5 minutes (in seconds)
+    private static final Logger LOG = Logger.create();
+    private static final long SYNC_PERIOD = 5*60;  // 5 minutes (in seconds)
     @Inject static AppSettings sSettings;
 
     private Authenticator mAuthenticator;
@@ -54,9 +54,28 @@ public class SyncAccountService extends Service {
         }
     }
 
-    /** Gets the app's sync account (call initialize() before using this). */
-    public static Account getAccount() {
-        return new Account(ACCOUNT_NAME, BuildConfig.ACCOUNT_TYPE);
+    /**
+     * Creates the sync account for this app if it doesn't already exist.
+     * @return true if a new account was created
+     */
+    private static boolean createAccount(Context context) {
+        Account account = getAccount();
+        AccountManager accountManager = (AccountManager) context.getSystemService(ACCOUNT_SERVICE);
+        if (accountManager.addAccountExplicitly(account, null, null)) {
+            // Enable automatic sync for the account with a period of SYNC_PERIOD.
+            ContentResolver.setIsSyncable(account, Contracts.CONTENT_AUTHORITY, 1);
+            ContentResolver.setSyncAutomatically(account, Contracts.CONTENT_AUTHORITY, true);
+            Bundle b = new Bundle();
+            b.putBoolean(SyncPhase.SYNC_PATIENTS.name(), true);
+            b.putBoolean(SyncPhase.SYNC_CONCEPTS.name(), true);
+            b.putBoolean(SyncPhase.SYNC_CHART_ITEMS.name(), true);
+            b.putBoolean(SyncPhase.SYNC_LOCATIONS.name(), true);
+            b.putBoolean(SyncPhase.SYNC_OBSERVATIONS.name(), true);
+            b.putBoolean(SyncPhase.SYNC_USERS.name(), true);
+            ContentResolver.addPeriodicSync(account, Contracts.CONTENT_AUTHORITY, b, SYNC_PERIOD);
+            return true;
+        }
+        return false;
     }
 
     /** Starts a full sync. */
@@ -70,7 +89,7 @@ public class SyncAccountService extends Service {
         b.putBoolean(SyncOption.FULL_SYNC.name(), true);
         b.putBoolean(SyncPhase.SYNC_PATIENTS.name(), true);
         b.putBoolean(SyncPhase.SYNC_CONCEPTS.name(), true);
-        b.putBoolean(SyncPhase.SYNC_CHART_STRUCTURE.name(), true);
+        b.putBoolean(SyncPhase.SYNC_CHART_ITEMS.name(), true);
         b.putBoolean(SyncPhase.SYNC_LOCATIONS.name(), true);
         b.putBoolean(SyncPhase.SYNC_OBSERVATIONS.name(), true);
         b.putBoolean(SyncPhase.SYNC_USERS.name(), true);
@@ -79,6 +98,11 @@ public class SyncAccountService extends Service {
         }
         LOG.i("Requesting full sync");
         ContentResolver.requestSync(getAccount(), Contracts.CONTENT_AUTHORITY, b);
+    }
+
+    /** Gets the app's sync account (call initialize() before using this). */
+    public static Account getAccount() {
+        return new Account(ACCOUNT_NAME, BuildConfig.ACCOUNT_TYPE);
     }
 
     /** Starts an incremental sync of just the observations. */
@@ -99,43 +123,16 @@ public class SyncAccountService extends Service {
         ContentResolver.requestSync(getAccount(), Contracts.CONTENT_AUTHORITY, b);
     }
 
-    /**
-     * Creates the sync account for this app if it doesn't already exist.
-     * @return true if a new account was created
-     */
-    private static boolean createAccount(Context context) {
-        Account account = getAccount();
-        AccountManager accountManager = (AccountManager) context.getSystemService(ACCOUNT_SERVICE);
-        if (accountManager.addAccountExplicitly(account, null, null)) {
-            // Enable automatic sync for the account with a period of SYNC_PERIOD.
-            ContentResolver.setIsSyncable(account, Contracts.CONTENT_AUTHORITY, 1);
-            ContentResolver.setSyncAutomatically(account, Contracts.CONTENT_AUTHORITY, true);
-            Bundle b = new Bundle();
-            b.putBoolean(SyncPhase.SYNC_PATIENTS.name(), true);
-            b.putBoolean(SyncPhase.SYNC_CONCEPTS.name(), true);
-            b.putBoolean(SyncPhase.SYNC_CHART_STRUCTURE.name(), true);
-            b.putBoolean(SyncPhase.SYNC_LOCATIONS.name(), true);
-            b.putBoolean(SyncPhase.SYNC_OBSERVATIONS.name(), true);
-            b.putBoolean(SyncPhase.SYNC_USERS.name(), true);
-            ContentResolver.addPeriodicSync(account, Contracts.CONTENT_AUTHORITY, b, SYNC_PERIOD);
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public void onCreate() {
+    @Override public void onCreate() {
         LOG.i("Service created");
         mAuthenticator = new Authenticator(this);
     }
 
-    @Override
-    public void onDestroy() {
+    @Override public void onDestroy() {
         LOG.i("Service destroyed");
     }
 
-    @Override
-    public IBinder onBind(Intent intent) {
+    @Override public IBinder onBind(Intent intent) {
         return mAuthenticator.getIBinder();
     }
 
@@ -146,7 +143,7 @@ public class SyncAccountService extends Service {
         }
 
         public Bundle addAccount(
-                AccountAuthenticatorResponse r, String s1, String s2, String[] ss, Bundle b) {
+            AccountAuthenticatorResponse r, String s1, String s2, String[] ss, Bundle b) {
             return null;
         }
 
@@ -167,7 +164,7 @@ public class SyncAccountService extends Service {
         }
 
         public Bundle updateCredentials(
-                AccountAuthenticatorResponse r, Account a, String s, Bundle b) {
+            AccountAuthenticatorResponse r, Account a, String s, Bundle b) {
             throw new UnsupportedOperationException();
         }
 

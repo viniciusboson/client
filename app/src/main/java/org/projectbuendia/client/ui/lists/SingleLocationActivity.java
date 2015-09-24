@@ -16,17 +16,17 @@ import android.content.Intent;
 import android.os.Bundle;
 
 import org.projectbuendia.client.R;
-import org.projectbuendia.client.data.app.AppPatient;
-import org.projectbuendia.client.data.app.TypedCursor;
+import org.projectbuendia.client.models.Patient;
+import org.projectbuendia.client.models.TypedCursor;
 import org.projectbuendia.client.utils.PatientCountDisplay;
 
 /** A patient list for a single location. */
 public class SingleLocationActivity extends BaseSearchablePatientListActivity {
     private String mLocationName;
     private String mLocationUuid;
-    private int mPatientCount;
+    private long mPatientCount;
 
-    public static void start(Context caller, String locationUuid, String locationName, int patientCount) {
+    public static void start(Context caller, String locationUuid, String locationName, long patientCount) {
         Intent intent = new Intent(caller, SingleLocationActivity.class);
         intent.putExtra("uuid", locationUuid);
         intent.putExtra("name", locationName);
@@ -34,20 +34,18 @@ public class SingleLocationActivity extends BaseSearchablePatientListActivity {
         caller.startActivity(intent);
     }
 
-    @Override
-    protected void onCreateImpl(Bundle savedInstanceState) {
+    @Override protected void onCreateImpl(Bundle savedInstanceState) {
         super.onCreateImpl(savedInstanceState);
 
         mLocationUuid = getIntent().getStringExtra("uuid");
         mLocationName = getIntent().getStringExtra("name");
-        mPatientCount = getIntent().getIntExtra("count", 0);
+        mPatientCount = getIntent().getLongExtra("count", 0);
         setTitle(PatientCountDisplay.getPatientCountTitle(this, mPatientCount, mLocationName));
         setContentView(R.layout.activity_round);
         getSearchController().setLocationFilter(mLocationUuid);
     }
 
-    @Override
-    protected void setPatients(TypedCursor<AppPatient> patients) {
+    @Override protected void setPatients(TypedCursor<Patient> patients) {
         mPatientCount = patients.getCount();
         setTitle(PatientCountDisplay.getPatientCountTitle(this, mPatientCount, mLocationName));
     }

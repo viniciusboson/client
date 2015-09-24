@@ -14,10 +14,13 @@ package org.projectbuendia.client.sync;
 import android.content.Context;
 
 import net.sqlcipher.database.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteException;
 import net.sqlcipher.database.SQLiteOpenHelper;
 
-import org.projectbuendia.client.sync.providers.Contracts.Table;
+import org.projectbuendia.client.BuildConfig;
+import org.projectbuendia.client.providers.Contracts.Table;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,10 +31,12 @@ import java.util.Map;
 public class Database extends SQLiteOpenHelper {
 
     /** Schema version. */
-    public static final int DATABASE_VERSION = 21;
+    public static final int DATABASE_VERSION = 29;
 
     /** Filename for SQLite file. */
-    public static final String DATABASE_NAME = "buendia.db";
+    public static final String DATABASE_FILENAME = "buendia.db";
+
+    File file;
 
     /*
      * This deserves a brief comment on security. Patient data encrypted by a hardcoded key
@@ -57,123 +62,108 @@ public class Database extends SQLiteOpenHelper {
      * technically savvy enough to use adb can almost certainly find it, but at least it isn't as
      * simple as using grep or strings.
      *
-     * TODO: add something better. At the very minimum a server call and local storage
+     * TODO/security: add something better. At the very minimum a server call and local storage
      * with expiry so that it has to sync to the server every so often. Even better some sort of
      * public key based scheme to only deliver the key on login with registered user on good device.
-     *
-     * A final note - we know the quote should be brillig, not brilling. No need to correct it.
      */
-    private static final String ENCRYPTION_PASSWORD = "Twas brilling and the slithy toves";
+    private static final String ENCRYPTION_PASSWORD = BuildConfig.ENCRYPTION_PASSWORD;
 
     /**
      * A map of SQL table schemas, with one entry per table.  The values should
      * be strings that take the place of X in a "CREATE TABLE foo (X)" statement.
      */
     static final Map<Table, String> SCHEMAS = new HashMap();
+
+    // For descriptions of these tables and the meanings of their columns, see Contracts.java.
     static {
         SCHEMAS.put(Table.PATIENTS, ""
-                + "_id TEXT PRIMARY KEY NOT NULL,"
-                + "given_name TEXT,"
-                + "family_name TEXT,"
-                + "uuid TEXT,"
-                + "location_uuid TEXT,"
-                + "birthdate TEXT,"
-                + "gender TEXT");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "id TEXT,"
+            + "given_name TEXT,"
+            + "family_name TEXT,"
+            + "location_uuid TEXT,"
+            + "birthdate TEXT,"
+            + "gender TEXT");
 
         SCHEMAS.put(Table.CONCEPTS, ""
-                + "_id TEXT PRIMARY KEY NOT NULL,"
-                + "xform_id INTEGER UNIQUE NOT NULL,"
-                + "concept_type TEXT");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "xform_id INTEGER UNIQUE NOT NULL,"
+            + "concept_type TEXT");
 
         SCHEMAS.put(Table.CONCEPT_NAMES, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "concept_uuid TEXT,"
-                + "locale TEXT,"
-                + "name TEXT,"
-                + "UNIQUE (concept_uuid, locale)");
+            + "concept_uuid TEXT,"
+            + "locale TEXT,"
+            + "name TEXT,"
+            + "UNIQUE (concept_uuid, locale)");
 
         SCHEMAS.put(Table.FORMS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "uuid TEXT,"
-                + "name TEXT,"
-                + "version TEXT");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "name TEXT,"
+            + "version TEXT");
 
         SCHEMAS.put(Table.LOCATIONS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "location_uuid TEXT,"
-                + "parent_uuid TEXT");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "parent_uuid TEXT");
 
         SCHEMAS.put(Table.LOCATION_NAMES, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "location_uuid TEXT,"
-                + "locale TEXT,"
-                + "name TEXT,"
-                + "UNIQUE (location_uuid, locale)");
+            + "location_uuid TEXT,"
+            + "locale TEXT,"
+            + "name TEXT,"
+            + "UNIQUE (location_uuid, locale)");
 
         SCHEMAS.put(Table.OBSERVATIONS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "patient_uuid TEXT,"
-                + "encounter_uuid TEXT,"
-                + "encounter_time INTEGER,"
-                + "concept_uuid INTEGER,"
-                + "value STRING,"
-                + "temp_cache INTEGER,"  // 0 or 1
-                + "UNIQUE (patient_uuid, encounter_uuid, concept_uuid)");
+            + "patient_uuid TEXT,"
+            + "encounter_uuid TEXT,"
+            + "encounter_millis INTEGER,"
+            + "concept_uuid INTEGER,"
+            + "value STRING,"
+            + "temp_cache INTEGER,"  // 0 or 1
+            + "UNIQUE (patient_uuid, encounter_uuid, concept_uuid)");
 
         SCHEMAS.put(Table.ORDERS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "uuid TEXT,"
-                + "patient_uuid TEXT,"
-                + "instructions TEXT,"
-                + "start_time INTEGER,"
-                + "stop_time INTEGER");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "patient_uuid TEXT,"
+            + "instructions TEXT,"
+            + "start_millis INTEGER,"
+            + "stop_millis INTEGER");
 
-        // TODO: rename to chart_rows
-        SCHEMAS.put(Table.CHARTS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "chart_uuid TEXT,"
-                + "chart_row INTEGER,"
-                + "group_uuid TEXT,"
-                + "group_name TEXT,"
-                + "concept_uuid TEXT,"
-                + "field_name TEXT,"
-                + "UNIQUE (chart_uuid, concept_uuid)");
+        SCHEMAS.put(Table.CHART_ITEMS, ""
+            + "rowid INTEGER PRIMARY KEY NOT NULL,"
+            + "chart_uuid TEXT,"
+            + "weight INTEGER,"
+            + "section_type TEXT,"
+            + "parent_rowid INTEGER,"
+            + "label TEXT,"
+            + "type TEXT,"
+            + "required INTEGER,"
+            + "concept_uuids TEXT,"
+            + "format TEXT,"
+            + "caption_format TEXT,"
+            + "css_class TEXT,"
+            + "css_style TEXT,"
+            + "script TEXT");
 
         SCHEMAS.put(Table.USERS, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "uuid TEXT,"
-                + "full_name TEXT");
+            + "uuid TEXT PRIMARY KEY NOT NULL,"
+            + "full_name TEXT");
 
-        // TODO: store misc as key-value rows, not one row
+        // TODO/cleanup: Store miscellaneous values in the "misc" table as rows with a key column
+        // and a value column, not all values in one row with an ever-growing number of columns.
         SCHEMAS.put(Table.MISC, ""
-                + "_id INTEGER PRIMARY KEY NOT NULL,"
-                + "full_sync_start_time INTEGER,"
-                + "full_sync_end_time INTEGER,"
-                + "obs_sync_time INTEGER");
+            + "full_sync_start_millis INTEGER,"
+            + "full_sync_end_millis INTEGER,"
+            + "obs_sync_end_millis INTEGER");
     }
 
     public Database(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        super(context, DATABASE_FILENAME, null, DATABASE_VERSION);
+        file = context.getDatabasePath(DATABASE_FILENAME);
     }
 
-    @Override
-    public void onCreate(SQLiteDatabase db) {
-        for (Table table : Table.values()) {
-            db.execSQL("CREATE TABLE " + table + " (" + SCHEMAS.get(table) + ");");
-        }
-    }
-
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         // This database is only a cache of data on the server, so its upgrade
         // policy is to discard all the data and start over.
         clear(db);
-    }
-
-    public void clear() {
-        // Never call zero-argument clear() from onUpgrade, as getWritableDatabase
-        // can trigger onUpgrade, leading to endless recursion.
-        clear(getWritableDatabase());
     }
 
     public void clear(SQLiteDatabase db) {
@@ -183,11 +173,36 @@ public class Database extends SQLiteOpenHelper {
         onCreate(db);
     }
 
-    public SQLiteDatabase getReadableDatabase() {
-        return super.getReadableDatabase(ENCRYPTION_PASSWORD);
+    @Override public void onCreate(SQLiteDatabase db) {
+        for (Table table : Table.values()) {
+            db.execSQL("CREATE TABLE " + table + " (" + SCHEMAS.get(table) + ");");
+        }
+    }
+
+    public void clear() {
+        // Never call zero-argument clear() from onUpgrade, as getWritableDatabase
+        // can trigger onUpgrade, leading to endless recursion.
+        clear(getWritableDatabase());
+    }
+
+    private void deleteDatabaseIfPasswordIncorrect() {
+        try {
+            getWritableDatabase(ENCRYPTION_PASSWORD);
+        } catch (SQLiteException e) {
+            if (e.getMessage().contains("encrypt")) {
+                // Incorrect or missing encryption password; delete the database and start over.
+                file.delete();
+            }
+        }
     }
 
     public SQLiteDatabase getWritableDatabase() {
-        return super.getWritableDatabase(ENCRYPTION_PASSWORD);
+        deleteDatabaseIfPasswordIncorrect();
+        return getWritableDatabase(ENCRYPTION_PASSWORD);
+    }
+
+    public SQLiteDatabase getReadableDatabase() {
+        deleteDatabaseIfPasswordIncorrect();
+        return getReadableDatabase(ENCRYPTION_PASSWORD);
     }
 }

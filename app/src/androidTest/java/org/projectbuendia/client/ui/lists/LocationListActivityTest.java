@@ -15,9 +15,6 @@ import org.projectbuendia.client.R;
 import org.projectbuendia.client.ui.FunctionalTestCase;
 
 import static android.support.test.espresso.Espresso.pressBack;
-import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withText;
 
 /** Tests for {@link LocationListActivity}. */
 public class LocationListActivityTest extends FunctionalTestCase {
@@ -31,7 +28,7 @@ public class LocationListActivityTest extends FunctionalTestCase {
     /** Tests that zones and tents are still displayed after returning from round view. */
     public void testZonesAndTentsDisplayed_afterRoundView() {
         inUserLoginGoToLocationSelection();
-        inLocationSelectionClickLocation("S1");
+        inLocationSelectionClickLocation(LOCATION_NAME);
         pressBack();
         inLocationSelectionCheckZonesAndTentsDisplayed();
     }
@@ -60,7 +57,7 @@ public class LocationListActivityTest extends FunctionalTestCase {
     public void testZonesAndTentsDisplayed_afterChartView() {
         inUserLoginInitDemoPatient();
         inUserLoginGoToLocationSelection();
-        inLocationSelectionClickLocation("S1");
+        inLocationSelectionClickLocation(LOCATION_NAME);
         inPatientListClickFirstPatient(); // open patient chart
 
         pressBack(); // back to search fragment
@@ -72,7 +69,7 @@ public class LocationListActivityTest extends FunctionalTestCase {
     public void testZonesAndTentsDisplayed_afterPatientLocationChanged() {
         inUserLoginInitDemoPatient();
         inUserLoginGoToLocationSelection();
-        inLocationSelectionClickLocation("S1");
+        inLocationSelectionClickLocation(LOCATION_NAME);
         inPatientListClickFirstPatient(); // open patient chart
 
         // Relocate the patient to C1.
