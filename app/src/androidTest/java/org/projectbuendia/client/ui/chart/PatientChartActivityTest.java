@@ -13,14 +13,19 @@ package org.projectbuendia.client.ui.chart;
 
 import android.support.test.espresso.Espresso;
 import android.support.test.espresso.IdlingResource;
+import android.support.test.espresso.web.webdriver.Locator;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.view.View;
+import android.webkit.WebView;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.RadioButton;
+import android.widget.TableLayout;
 
 import org.odk.collect.android.views.MediaLayout;
 import org.odk.collect.android.views.ODKView;
 import org.odk.collect.android.widgets2.group.TableWidgetGroup;
+import org.odk.collect.android.widgets2.selectone.BinarySelectOneWidget;
 import org.odk.collect.android.widgets2.selectone.ButtonsSelectOneWidget;
 import org.projectbuendia.client.R;
 import org.projectbuendia.client.events.FetchXformSucceededEvent;
@@ -32,6 +37,8 @@ import org.projectbuendia.client.utils.Logger;
 
 import java.util.UUID;
 
+import static android.support.test.espresso.web.sugar.Web.onWebView;
+import static android.support.test.espresso.web.webdriver.DriverAtoms.findElement;
 import static org.hamcrest.Matchers.not;
 
 /** Functional tests for {@link PatientChartActivity}. */
@@ -49,7 +56,7 @@ public class PatientChartActivityTest extends FunctionalTestCase {
     private static final String BLOOD_PRESSURE_DIASTOLIC_LABEL = "[test] Blood pressure, diastolic";
     private static final String WEIGHT_LABEL = "[test] Weight (kg)";
     private static final String HEIGHT_LABEL = "[test] Height (cm)";
-    private static final String SHOCK_LABEL = "Shock";
+    private static final String SHOCK_LABEL = "[test] Shock";
     private static final String SHOCK_VALUE = "1. [test] Mild";
     private static final String CONSCIOUSNESS_LABEL = "[test] Consciousness (AVPU)";
     private static final String CONSCIOUSNESS_VALUE = "V. [test] Responds to voice";
@@ -202,7 +209,18 @@ public class PatientChartActivityTest extends FunctionalTestCase {
                         hasDescendantThat(hasTextContaining(questionText)))));
     }
 
-    private void answerCodedQuestion(String questionText, String answerText) {
+    private void answerSingleCodedQuestion(String questionText, String answerText) {
+        answerCodedQuestion(questionText, answerText, ButtonsSelectOneWidget.class,
+            TableWidgetGroup.class);
+    }
+
+    private void answerMultipleCodedQuestion(String questionText, String answerText) {
+        answerCodedQuestion(questionText, answerText, ButtonsSelectOneWidget.class,
+                TableWidgetGroup.class, ODKView.class);
+    }
+
+    private void answerCodedQuestion(String questionText, String answerText,
+        final Class<? extends View>... classes) {
         // Close the soft keyboard before answering any toggle questions -- on rare occasions,
         // if Espresso answers one of these questions and is then instructed to type into another
         // field, the input event will actually be generated as the keyboard is hiding and will be
@@ -212,10 +230,13 @@ public class PatientChartActivityTest extends FunctionalTestCase {
         scrollToAndClick(viewThat(
                 isAnyOf(CheckBox.class, RadioButton.class),
                 hasAncestorThat(
-                        isAnyOf(ButtonsSelectOneWidget.class, TableWidgetGroup.class, ODKView.class),
+                        isAnyOf(classes),
                         hasDescendantThat(hasTextContaining(questionText))),
                 hasTextContaining(answerText)));
     }
+
+
+
 
     private void saveForm() {
         IdlingResource xformWaiter = getXformSubmissionIdlingResource();
@@ -259,26 +280,29 @@ public class PatientChartActivityTest extends FunctionalTestCase {
     private void checkVitalValueContains(String vitalName, String vitalValue) {
         // Check for updated vital view.
         expectVisibleSoon(viewThat(
-            hasTextContaining(vitalValue),
-            hasSiblingThat(hasTextContaining(vitalName))));
+                hasTextContaining(vitalValue),
+                hasSiblingThat(hasTextContaining(vitalName))));
     }
 
     private void checkObservationValueEquals(int row, String value, String dateKey) {
         // TODO/completeness: actually check dateKey
 
         scrollToAndExpectVisible(viewThat(
-            hasText(value),
-            hasAncestorThat(isInRow(row, ROW_HEIGHT))));
+                hasText(value),
+                hasAncestorThat(isInRow(row, ROW_HEIGHT))));
     }
 
     /** Ensures that non-overlapping observations for the same encounter are combined. */
     public void testCombinesNonOverlappingObservationsForSameEncounter() {
         inUserLoginGoToDemoPatientChart();
+
+        //checkObservationValueEquals(0,"", "Notes");
+
         // Enter first set of observations for this encounter.
         openEncounterForm();
-        answerTextQuestion(TEMPERATURE_LABEL, "37.5");
+        //answerTextQuestion(TEMPERATURE_LABEL, "37.5");
         answerTextQuestion(RESPIRATORY_RATE_LABEL, "23");
-        answerTextQuestion(SPO2_OXYGEN_SAT_LABEL, "95");
+        //answerTextQuestion(SPO2_OXYGEN_SAT_LABEL, "95");
         answerTextQuestion(BLOOD_PRESSURE_SYSTOLIC_LABEL, "80");
         answerTextQuestion(BLOOD_PRESSURE_DIASTOLIC_LABEL, "100");
         saveForm();
@@ -287,25 +311,37 @@ public class PatientChartActivityTest extends FunctionalTestCase {
         openEncounterForm();
         answerTextQuestion(WEIGHT_LABEL, "80");
         answerTextQuestion(HEIGHT_LABEL, "170");
-        answerCodedQuestion(SHOCK_LABEL, SHOCK_VALUE);
-        answerCodedQuestion(CONSCIOUSNESS_LABEL, CONSCIOUSNESS_VALUE);
-        answerCodedQuestion(OTHER_SYMPTOMS_LABEL, OTHER_SYMPTOMS_VALUE);
+        answerSingleCodedQuestion(SHOCK_LABEL, SHOCK_VALUE);
+        answerSingleCodedQuestion(CONSCIOUSNESS_LABEL, CONSCIOUSNESS_VALUE);
+        answerMultipleCodedQuestion(OTHER_SYMPTOMS_LABEL, OTHER_SYMPTOMS_VALUE);
         saveForm();
 
         // Enter second set of observations for this encounter.
         openEncounterForm();
-        answerCodedQuestion(HICCUPS_LABEL, "Yes");
-        answerCodedQuestion(HEADACHE_LABEL, "Yes");
-        answerCodedQuestion(SORE_THROAT_LABEL, "Yes");
-        answerCodedQuestion(HEARTBURN_LABEL, "No");
-        answerCodedQuestion(PREGNANT_LABEL, "Yes");
-        answerCodedQuestion(CONDITION_LABEL, CONDITION_VALUE);
+        answerSingleCodedQuestion(HICCUPS_LABEL, "No");
+        answerSingleCodedQuestion(HEADACHE_LABEL, "No");
+        answerSingleCodedQuestion(SORE_THROAT_LABEL, "Yes");
+        answerSingleCodedQuestion(HEARTBURN_LABEL, "No");
+        answerSingleCodedQuestion(PREGNANT_LABEL, "Yes");
+        answerSingleCodedQuestion(CONDITION_LABEL, CONDITION_VALUE);
         answerTextQuestion(NOTES_LABEL, "Call the family");
         saveForm();
 
         //TODO: Fixme
         // Check that all values are now visible.
-        checkVitalValueContains("Pulse", "74");
+
+//        onWebView().withElement(findElement(Locator.ID, RESPIRATORY_RATE_LABEL));
+
+//        ,
+//        hasChildThat(
+//                isA(MediaLayout.class),
+//                hasDescendantThat(hasTextContaining(questionText)))
+
+        checkObservationSet(41, "23"); // RESPIRATORY_RATE_LABEL
+        checkObservationValueEquals(41, "23", RESPIRATORY_RATE_LABEL); // Temp
+
+        checkVitalValueContains(BLOOD_PRESSURE_SYSTOLIC_LABEL, "80");
+
         checkVitalValueContains("Respiration", "23");
         checkObservationValueEquals(0, "36.1", "Today"); // Temp
         checkObservationSet(5, "Today"); // Nausea
